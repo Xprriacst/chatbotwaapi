@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { PhoneInput } from './components/PhoneInput';
+import { AuthForm } from './components/AuthForm';
 import { MessageSquare } from 'lucide-react';
 import { WaAPIService } from './services/waapi.service';
 import { useMessagesStore } from './store/messages.store';
 import { useAuth } from './hooks/useAuth';
-import { supabase } from './services/supabase';
 import { ENV } from './config/env.config';
 
 export function App() {
@@ -14,24 +14,13 @@ export function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { messages, addMessage } = useMessagesStore();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    checkInstanceStatus();
-    initAuth();
-  }, []);
-
-  const initAuth = async () => {
-    try {
-      if (!user) {
-        const { error } = await supabase.auth.signInAnonymously();
-        if (error) throw error;
-      }
-    } catch (error) {
-      console.error('Auth error:', error);
-      setError('Authentication failed. Please try again.');
+    if (user) {
+      checkInstanceStatus();
     }
-  };
+  }, [user]);
 
   const checkInstanceStatus = async () => {
     try {
@@ -44,7 +33,7 @@ export function App() {
   };
 
   const handleSendMessage = async (text: string) => {
-    if (!recipientPhone || !text.trim()) return;
+    if (!recipientPhone || !text.trim() || !user) return;
     setError(null);
 
     try {
@@ -72,6 +61,18 @@ export function App() {
       setError('Failed to send message. Please try again.');
     }
   };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center py-8 px-4">
+        <AuthForm />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8 px-4">
