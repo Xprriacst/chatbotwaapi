@@ -1,15 +1,23 @@
 import { WAMessage } from '../types/waapi.types';
 import { Message } from '../types/message.types';
-import { ENV } from '../config/env.config';
+import { WAAPI_CONFIG } from '../config/constants';
+import { isBusinessNumber } from './phone.utils';
 
 export function convertWAMessageToMessage(waMessage: WAMessage): Message {
+  // Check if the message is from the business number
+  const isFromBusiness = isBusinessNumber(
+    waMessage.from.split('@')[0], 
+    WAAPI_CONFIG.PHONE_NUMBER
+  );
+
   return {
     id: waMessage.id._serialized,
     text: waMessage.body,
-    // Correction : un message est "bot" s'il n'est PAS fromMe
-    isBot: !waMessage.fromMe,
-    timestamp: waMessage.timestamp,
-    status: convertAckToStatus(waMessage.ack)
+    isBot: isFromBusiness,
+    timestamp: waMessage.timestamp * 1000, // Convert to milliseconds
+    status: convertAckToStatus(waMessage.ack),
+    sender: waMessage.from.split('@')[0],
+    recipient: waMessage.to.split('@')[0]
   };
 }
 
