@@ -4,6 +4,8 @@ export interface Message {
   isBot: boolean;
   timestamp: number;
   status?: 'sent' | 'delivered' | 'read';
+  sender: string;
+  recipient: string;
 }
 
 export interface WAMessageStatus {
