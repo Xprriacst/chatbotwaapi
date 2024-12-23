@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# chatbotwaapi
-chatbotwaapi
-=======
 # WhatsApp Chat Application
 
 A React-based WhatsApp chat application that integrates with the WAAPI service.
@@ -51,4 +47,3 @@ npm run build
 ## License
 
 MIT
->>>>>>> Initial commit
