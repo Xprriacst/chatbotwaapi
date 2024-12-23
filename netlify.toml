@@ -7,3 +7,13 @@
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+
+[[redirects]]
+  from = "/api/websocket"
+  to = "/.netlify/functions/websocket"
+  status = 200
+  force = true
+  [redirects.headers]
+    X-From = "Netlify"
+    Connection = "upgrade"
+    Upgrade = "websocket"
