@@ -7,7 +7,7 @@ interface MessagesState {
   setMessages: (messages: Message[]) => void;
 }
 
-export const useMessagesStore = create<MessagesState>()((set) => ({
+export const useMessagesStore = create<MessagesState>((set) => ({
   messages: [],
   addMessage: (message) => 
     set((state) => ({
@@ -16,4 +16,12 @@ export const useMessagesStore = create<MessagesState>()((set) => ({
   setMessages: (messages) => set({ messages })
 }));
 
-export type { MessagesState };
+// Hook personnalisé pour utiliser le store
+export const useMessages = () => {
+  const store = useMessagesStore();
+  return {
+    messages: store.messages,
+    addMessage: store.addMessage,
+    setMessages: store.setMessages
+  };
+};
