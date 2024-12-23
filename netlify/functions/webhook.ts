@@ -1,63 +1,58 @@
-import { Handler } from '@netlify/functions';
-import { WebhookEvent, WAMessage } from '../../src/types/waapi.types';
+import { ENV } from '../../config/env.config';
+import { WAMessage } from '../../types/waapi.types';
 
-const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: 'Method Not Allowed'
-    };
-  }
+interface FetchMessagesParams {
+  limit?: number;
+  cursor?: string;
+}
 
-  try {
-    const payload = JSON.parse(event.body || '{}') as WebhookEvent;
-    console.log('Received webhook event:', JSON.stringify(payload, null, 2));
+export class WaAPIMessagesService {
+  private static headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${ENV.WAAPI.ACCESS_TOKEN}`
+  };
 
-    switch (payload.event) {
-      case 'message':
-      case 'message_create':
-        await handleIncomingMessage(payload.data.message);
-        break;
-      case 'message_ack':
-        await handleMessageStatus(payload.data.message);
-        break;
+  static async fetchMessages({ limit = 50, cursor }: FetchMessagesParams = {}) {
+    try {
+      const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/fetch-messages`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify({ limit, cursor })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch messages');
+      }
+
+      const data = await response.json();
+      return data.data.messages as WAMessage[];
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      throw error;
     }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ status: 'success' })
-    };
-  } catch (error) {
-    console.error('Error processing webhook:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
-    };
-  }
-};
-
-async function handleIncomingMessage(message: WAMessage) {
-  // Ignorer les messages envoyés par nous-mêmes
-  if (message.fromMe) {
-    return;
   }
 
-  console.log('Processing incoming message:', {
-    from: message.from,
-    body: message.body,
-    timestamp: new Date(message.timestamp * 1000).toISOString()
-  });
+  static async getMessageById(messageId: string) {
+    try {
+      const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/get-message-by-id`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify({ messageId })
+      });
 
-  // Ici vous pouvez ajouter la logique pour répondre automatiquement aux messages
-  // Par exemple, un message de bienvenue ou une réponse automatique
+      if (!response.ok) {
+        throw new Error('Failed to get message');
+      }
+
+      const data = await response.json();
+      return data.data.message as WAMessage;
+    } catch (error) {
+      console.error('Error getting message:', error);
+      throw error;
+    }
+  }
 }
-
-async function handleMessageStatus(message: WAMessage) {
-  console.log('Message status update:', {
-    id: message.id._serialized,
-    ack: message.ack,
-    timestamp: new Date(message.timestamp * 1000).toISOString()
-  });
-}
-
-export { handler };
