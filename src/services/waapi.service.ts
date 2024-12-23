@@ -24,16 +24,16 @@ export class WaAPIService {
       const formattedPhone = this.formatPhoneNumber(to);
       
       const payload = {
-        to: formattedPhone,
-        type: 'text',
-        message
+        chatId: formattedPhone,
+        message,
+        previewLink: true
       };
 
       const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/send-message`;
       
       console.log('Sending message:', {
         url,
-        to: formattedPhone,
+        chatId: formattedPhone,
         messageLength: message.length
       });
 
