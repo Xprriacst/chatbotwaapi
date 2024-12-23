@@ -2,23 +2,48 @@ import { Handler } from '@netlify/functions';
 import { WebhookEvent } from '../../src/types/waapi.types';
 import { convertWAMessageToMessage } from './utils';
 
-const handler: Handler = async (event) => {
+export const handler: Handler = async (event) => {
+  console.log('Webhook received request:', {
+    method: event.httpMethod,
+    headers: event.headers,
+    path: event.path
+  });
+
   if (event.httpMethod !== 'POST') {
+    console.log('Invalid method:', event.httpMethod);
     return {
       statusCode: 405,
-      body: 'Method Not Allowed'
+      body: JSON.stringify({ error: 'Method not allowed' })
     };
   }
 
   try {
+    console.log('Raw webhook payload:', event.body);
     const payload = JSON.parse(event.body || '{}') as WebhookEvent;
-    console.log('Received webhook event:', JSON.stringify(payload, null, 2));
+    
+    console.log('Parsed webhook event:', {
+      type: payload.event,
+      instanceId: payload.instanceId,
+      messageId: payload.data?.message?.id?._serialized,
+      messageBody: payload.data?.message?.body
+    });
 
-    // Transmettre l'événement au WebSocket en utilisant l'URL complète
+    // Validate required fields
+    if (!payload.event || !payload.instanceId || !payload.data) {
+      console.error('Invalid webhook payload - missing required fields');
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Invalid webhook payload structure' })
+      };
+    }
+
+    // Forward to WebSocket
     const host = event.headers.host || 'localhost:8888';
     const protocol = host.includes('localhost') ? 'http:' : 'https:';
     const websocketUrl = `${protocol}//${host}/.netlify/functions/websocket`;
 
+    console.log('Forwarding to WebSocket:', websocketUrl);
+    
     await fetch(websocketUrl, {
       method: 'POST',
       headers: {
@@ -29,15 +54,19 @@ const handler: Handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ status: 'success' })
+      body: JSON.stringify({ 
+        status: 'success',
+        event: payload.event
+      })
     };
   } catch (error) {
     console.error('Error processing webhook:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      })
     };
   }
 };
-
-export { handler };
