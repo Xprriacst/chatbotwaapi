@@ -2,18 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { PhoneInput } from './components/PhoneInput';
+import { AuthForm } from './components/AuthForm';
 import { MessageSquare } from 'lucide-react';
 import { WaAPIService } from './services/waapi.service';
 import { useMessagesStore } from './store/messages.store';
+import { useAuth } from './hooks/useAuth';
+import { MessageRepository } from './services/messages/message.repository';
 
-function App() {
+export function App() {
   const [recipientPhone, setRecipientPhone] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { messages, addMessage } = useMessagesStore();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    checkInstanceStatus();
-  }, []);
+    if (user) {
+      checkInstanceStatus();
+      loadMessages();
+    }
+  }, [user]);
+
+  const loadMessages = async () => {
+    if (!user) return;
+    try {
+      const messages = await MessageRepository.getMessages(user.id);
+      messages.forEach(addMessage);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      setError('Failed to load messages');
+    }
+  };
 
   const checkInstanceStatus = async () => {
     try {
@@ -21,41 +40,40 @@ function App() {
       setIsConnected(status.status === 'connected');
     } catch (error) {
       console.error('Failed to check instance status:', error);
+      setError('Failed to connect to WhatsApp. Please try again.');
     }
   };
 
   const handleSendMessage = async (text: string) => {
-    if (!recipientPhone || !text.trim()) return;
+    if (!recipientPhone || !text.trim() || !user) return;
+    setError(null);
 
     try {
-      const message = {
-        id: `local-${Date.now()}`,
-        text,
-        isBot: false,
-        timestamp: Date.now(),
-        status: 'sent' as const,
-        sender: recipientPhone,
-        recipient: recipientPhone
-      };
-      addMessage(message);
-
-      await WaAPIService.sendMessage({
+      const { message } = await WaAPIService.sendMessage({
         to: recipientPhone,
         message: text
       });
+
+      console.log('Message sent, saving to database:', message);
+      await MessageRepository.saveMessage(message, user.id);
+      addMessage(message);
     } catch (error) {
       console.error('Failed to send message:', error);
-      addMessage({
-        id: `error-${Date.now()}`,
-        text: "Erreur lors de l'envoi du message. Veuillez réessayer.",
-        isBot: true,
-        timestamp: Date.now(),
-        status: 'sent',
-        sender: 'system',
-        recipient: recipientPhone
-      });
+      setError('Failed to send message. Please try again.');
     }
   };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center py-8 px-4">
+        <AuthForm />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8 px-4">
@@ -69,6 +87,12 @@ function App() {
             {isConnected ? 'Connecté' : 'Déconnecté'}
           </div>
         </div>
+
+        {error && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
+            {error}
+          </div>
+        )}
 
         <div className="h-[500px] overflow-y-auto p-4 space-y-4">
           {messages?.map((message) => (
