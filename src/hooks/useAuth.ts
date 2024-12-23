@@ -5,9 +5,10 @@ import { User } from '@supabase/supabase-js';
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get iniatial session
+    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -22,19 +23,54 @@ export function useAuth() {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    try {
+      setError(null);
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (signInError) {
+        console.error('Sign in error:', signInError);
+        throw new Error(signInError.message);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign in');
+      throw err;
+    }
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
+    try {
+      setError(null);
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+
+      if (signUpError) {
+        console.error('Sign up error:', signUpError);
+        throw new Error(signUpError.message);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign up');
+      throw err;
+    }
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      setError(null);
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign out');
+      throw err;
+    }
   };
 
-  return { user, loading, signIn, signUp, signOut };
+  return { user, loading, error, signIn, signUp, signOut };
 }
