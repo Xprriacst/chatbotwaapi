@@ -5,12 +5,12 @@ import { PhoneInput } from './components/PhoneInput';
 import { MessageSquare } from 'lucide-react';
 import { WaAPIService } from './services/waapi.service';
 import { WebSocketService } from './services/websocket.service';
-import { useMessages } from './hooks/useMessages';
+import { useMessagesStore } from './store/messages.store';
 
 function App() {
   const [recipientPhone, setRecipientPhone] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
-  const { messages, addMessage } = useMessages();
+  const { messages, addMessage } = useMessagesStore();
 
   useEffect(() => {
     checkInstanceStatus();
@@ -34,7 +34,6 @@ function App() {
     if (!recipientPhone || !text.trim()) return;
 
     try {
-      // Ajouter le message localement d'abord
       const message = {
         id: `local-${Date.now()}`,
         text,
@@ -44,7 +43,6 @@ function App() {
       };
       addMessage(message);
 
-      // Envoyer le message via WhatsApp
       await WaAPIService.sendMessage({
         to: recipientPhone,
         message: text
