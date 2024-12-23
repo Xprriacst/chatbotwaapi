@@ -10,15 +10,16 @@ import { useMessages } from './hooks/useMessages';
 function App() {
   const [recipientPhone, setRecipientPhone] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
-  const { messages } = useMessages();
+  const { messages, addMessage } = useMessages();
 
   useEffect(() => {
     checkInstanceStatus();
     WebSocketService.connect();
 
-    // Debug log pour vérifier les messages
-    console.log('Current messages in App:', messages);
-  }, [messages]); // Ajout de messages comme dépendance pour voir les mises à jour
+    return () => {
+      WebSocketService.disconnect();
+    };
+  }, []);
 
   const checkInstanceStatus = async () => {
     try {
@@ -29,13 +30,40 @@ function App() {
     }
   };
 
-  // Debug render pour voir le contenu brut des messages
-  console.log('Rendering messages:', messages);
+  const handleSendMessage = async (text: string) => {
+    if (!recipientPhone || !text.trim()) return;
+
+    try {
+      // Ajouter le message localement d'abord
+      const message = {
+        id: `local-${Date.now()}`,
+        text,
+        isBot: false,
+        timestamp: Date.now(),
+        status: 'sent' as const
+      };
+      addMessage(message);
+
+      // Envoyer le message via WhatsApp
+      await WaAPIService.sendMessage({
+        to: recipientPhone,
+        message: text
+      });
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      addMessage({
+        id: `error-${Date.now()}`,
+        text: "Erreur lors de l'envoi du message. Veuillez réessayer.",
+        isBot: true,
+        timestamp: Date.now(),
+        status: 'sent'
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8 px-4">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-lg overflow-hidden">
-        {/* Header */}
         <div className="bg-blue-500 text-white p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-6 h-6" />
@@ -46,17 +74,8 @@ function App() {
           </div>
         </div>
 
-        {/* Debug: Affichage brut des messages */}
-        <div className="p-2 bg-gray-100">
-          <p>Nombre de messages: {messages.length}</p>
-          <pre className="text-xs overflow-auto">
-            {JSON.stringify(messages, null, 2)}
-          </pre>
-        </div>
-
-        {/* Chat messages */}
         <div className="h-[500px] overflow-y-auto p-4 space-y-4">
-          {messages.map((message) => (
+          {messages?.map((message) => (
             <ChatMessage
               key={message.id}
               message={message.text}
@@ -66,7 +85,6 @@ function App() {
           ))}
         </div>
 
-        {/* Input */}
         <div className="border-t p-4 bg-gray-50 space-y-4">
           {!recipientPhone ? (
             <PhoneInput onPhoneSubmit={setRecipientPhone} />
