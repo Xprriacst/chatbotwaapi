@@ -3,12 +3,14 @@ import { Message } from '../types/message.types';
 import { ENV } from '../config/env.config';
 
 export function convertWAMessageToMessage(waMessage: WAMessage): Message {
+  // Déterminer si le message est du bot (numéro WhatsApp Business)
+  const isFromBot = waMessage.from === `${ENV.WAAPI.PHONE_NUMBER}@c.us`;
+  
   return {
     id: waMessage.id._serialized,
     text: waMessage.body,
-    // Correction : un message est "bot" s'il n'est PAS fromMe
-    isBot: !waMessage.fromMe,
-    timestamp: waMessage.timestamp,
+    isBot: isFromBot,
+    timestamp: waMessage.timestamp * 1000, // Convertir en millisecondes
     status: convertAckToStatus(waMessage.ack)
   };
 }
