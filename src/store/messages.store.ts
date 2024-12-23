@@ -1,24 +1,20 @@
-import { WAMessage } from '../types/waapi.types';
+import { create } from 'zustand';
 import { Message } from '../types/message.types';
-import { ENV } from '../config/env.config';
 
-export function convertWAMessageToMessage(waMessage: WAMessage): Message {
-  return {
-    id: waMessage.id._serialized,
-    text: waMessage.body,
-    isBot: waMessage.from !== ENV.WAAPI.PHONE_NUMBER,
-    timestamp: waMessage.timestamp,
-    status: convertAckToStatus(waMessage.ack)
-  };
+interface MessagesState {
+  messages: Message[];
+  addMessage: (message: Message) => void;
+  setMessages: (messages: Message[]) => void;
 }
 
-export function convertAckToStatus(ack: number): Message['status'] {
-  switch (ack) {
-    case 2:
-      return 'delivered';
-    case 3:
-      return 'read';
-    default:
-      return 'sent';
-  }
-}
+export const useMessagesStore = create<MessagesState>((set) => ({
+  messages: [],
+  addMessage: (message) => 
+    set((state) => ({
+      messages: [...state.messages, message]
+    })),
+  setMessages: (messages) => set({ messages })
+}));
+
+// Export the store type
+export type { MessagesState };
