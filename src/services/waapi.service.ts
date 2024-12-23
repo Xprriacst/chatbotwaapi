@@ -12,26 +12,30 @@ export class WaAPIService {
   };
 
   private static formatPhoneNumber(phone: string): string {
-    // Supprimer tous les caractères non numériques
-    const cleaned = phone.replace(/\D/g, '');
-    // Ajouter le suffixe @c.us requis par l'API WAAPI
+    // Supprimer tous les caractères non numériques sauf le + initial
+    const cleaned = phone.startsWith('+') 
+      ? phone.substring(1).replace(/\D/g, '')
+      : phone.replace(/\D/g, '');
     return `${cleaned}@c.us`;
   }
 
   static async sendMessage({ to, message }: SendMessageParams) {
     try {
       const formattedPhone = this.formatPhoneNumber(to);
-      console.log('Sending message to formatted number:', formattedPhone);
       
       const payload = {
         to: formattedPhone,
         type: 'text',
         message
       };
-      console.log('Request payload:', payload);
 
       const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/send-message`;
-      console.log('Request URL:', url);
+      
+      console.log('Sending message:', {
+        url,
+        to: formattedPhone,
+        messageLength: message.length
+      });
 
       const response = await fetch(url, {
         method: 'POST',
@@ -42,18 +46,17 @@ export class WaAPIService {
       const data = await response.json();
       
       if (!response.ok) {
-        console.error('API Error Response:', {
+        console.error('Failed to send message:', {
           status: response.status,
-          statusText: response.statusText,
-          data
+          error: data
         });
-        throw new Error(`Failed to send message: ${data.message || 'Unknown error'}`);
+        throw new Error(data.message || 'Failed to send message');
       }
 
       console.log('Message sent successfully:', data);
       return data;
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error in sendMessage:', error);
       throw error;
     }
   }
@@ -61,23 +64,18 @@ export class WaAPIService {
   static async getInstanceStatus() {
     try {
       const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}`;
-      console.log('Checking instance status:', url);
-
       const response = await fetch(url, {
         headers: this.headers
       });
 
       const data = await response.json();
-
       if (!response.ok) {
-        console.error('API Error:', data);
-        throw new Error(`Failed to get instance status: ${data.message || 'Unknown error'}`);
+        throw new Error(data.message || 'Failed to get instance status');
       }
 
-      console.log('Instance status:', data);
       return data;
     } catch (error) {
-      console.error('Error getting instance status:', error);
+      console.error('Error in getInstanceStatus:', error);
       throw error;
     }
   }
