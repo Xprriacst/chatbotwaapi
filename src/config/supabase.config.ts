@@ -1,6 +1,8 @@
+import { ENV } from './env.config';
+
 export const SUPABASE_CONFIG = {
-  URL: 'https://npihufonabxfpetczeen.supabase.co',
-  ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5waWh1Zm9uYWJ4ZnBldGN6ZWVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDk4MjU2MDAsImV4cCI6MjAyNTQwMTYwMH0.S_vwDhLhQOQqkD-fFtYDXqVVvhQmLO3A0TqwTjKlIN0',
+  URL: ENV.SUPABASE.URL,
+  ANON_KEY: ENV.SUPABASE.ANON_KEY,
   TABLES: {
     CONVERSATIONS: 'conversations',
     MESSAGES: 'messages'
