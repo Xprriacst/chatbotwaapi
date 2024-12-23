@@ -13,8 +13,8 @@ const envSchema = z.object({
     ANON_KEY: z.string().min(1, 'Supabase anonymous key is required')
   }),
   OPENAI: z.object({
-    API_KEY: z.string().min(1, 'OpenAI API key is required')
-  })
+    API_KEY: z.string().optional()
+  }).optional()
 });
 
 // Environment variables
@@ -29,9 +29,9 @@ export const ENV = {
     URL: import.meta.env.VITE_SUPABASE_URL,
     ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY
   },
-  OPENAI: {
+  OPENAI: import.meta.env.VITE_OPENAI_API_KEY ? {
     API_KEY: import.meta.env.VITE_OPENAI_API_KEY
-  }
+  } : undefined
 } as const;
 
 // Validate environment variables
