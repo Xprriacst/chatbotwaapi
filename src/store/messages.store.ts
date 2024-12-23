@@ -9,11 +9,18 @@ interface MessagesState {
 
 export const useMessagesStore = create<MessagesState>((set) => ({
   messages: [],
-  addMessage: (message) => 
-    set((state) => ({
-      messages: [...state.messages, message]
-    })),
-  setMessages: (messages) => set({ messages })
+  addMessage: (message) => {
+    console.log('Adding message to store:', message);
+    set((state) => {
+      const newMessages = [...state.messages, message];
+      console.log('Updated messages:', newMessages);
+      return { messages: newMessages };
+    });
+  },
+  setMessages: (messages) => {
+    console.log('Setting messages:', messages);
+    set({ messages });
+  }
 }));
 
 // Hook personnalisé pour utiliser le store
