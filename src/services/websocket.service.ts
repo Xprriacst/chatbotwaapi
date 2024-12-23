@@ -1,58 +1,82 @@
-import { ENV } from '../../config/env.config';
-import { WAMessage } from '../../types/waapi.types';
+import { useMessagesStore } from '../store/messages.store';
+import { WebhookEvent } from '../types/waapi.types';
+import { convertWAMessageToMessage } from '../utils/message.utils';
 
-interface FetchMessagesParams {
-  limit?: number;
-  cursor?: string;
-}
+export class WebSocketService {
+  private static ws: WebSocket | null = null;
+  private static reconnectAttempts = 0;
+  private static maxReconnectAttempts = 5;
+  private static reconnectTimeout: NodeJS.Timeout | null = null;
 
-export class WaAPIMessagesService {
-  private static headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${ENV.WAAPI.ACCESS_TOKEN}`
-  };
+  static connect() {
+    if (this.ws?.readyState === WebSocket.OPEN) return;
 
-  static async fetchMessages({ limit = 50, cursor }: FetchMessagesParams = {}) {
-    try {
-      const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/fetch-messages`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify({ limit, cursor })
-      });
+    // Use secure WebSocket for production, regular for development
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/.netlify/functions/websocket`;
+    
+    this.ws = new WebSocket(wsUrl);
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch messages');
+    this.ws.onopen = () => {
+      console.log('WebSocket connected');
+      this.reconnectAttempts = 0;
+      if (this.reconnectTimeout) {
+        clearTimeout(this.reconnectTimeout);
+        this.reconnectTimeout = null;
       }
+    };
 
-      const data = await response.json();
-      return data.data.messages as WAMessage[];
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      throw error;
-    }
+    this.ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as WebhookEvent;
+        console.log('WebSocket message received:', data);
+        
+        switch (data.event) {
+          case 'message':
+          case 'message_create': {
+            const message = convertWAMessageToMessage(data.data.message);
+            useMessagesStore.getState().addMessage(message);
+            break;
+          }
+          case 'message_ack': {
+            const message = convertWAMessageToMessage(data.data.message);
+            const messages = useMessagesStore.getState().messages;
+            const updatedMessages = messages.map(msg => 
+              msg.id === message.id ? { ...msg, status: message.status } : msg
+            );
+            useMessagesStore.getState().setMessages(updatedMessages);
+            break;
+          }
+        }
+      } catch (error) {
+        console.error('Error processing websocket message:', error);
+      }
+    };
+
+    this.ws.onclose = () => {
+      console.log('WebSocket disconnected');
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.reconnectTimeout = setTimeout(() => {
+          console.log(`Attempting to reconnect (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+          this.reconnectAttempts++;
+          this.connect();
+        }, 1000 * Math.pow(2, this.reconnectAttempts));
+      }
+    };
+
+    this.ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
   }
 
-  static async getMessageById(messageId: string) {
-    try {
-      const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/get-message-by-id`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify({ messageId })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get message');
-      }
-
-      const data = await response.json();
-      return data.data.message as WAMessage;
-    } catch (error) {
-      console.error('Error getting message:', error);
-      throw error;
+  static disconnect() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
   }
 }
