@@ -1,6 +1,14 @@
+import { ENV } from './env.config';
+
 export const WAAPI_CONFIG = {
-  ACCESS_TOKEN: 'SquEn91sHS4ptv5XmZLCwhUNlRVUTqbPhsgovuHzc0d62ef2',
-  INSTANCE_ID: '32696',
-  PHONE_NUMBER: '+33781055952',
-  BASE_URL: 'https://waapi.app/api/v1'
-};
+  ...ENV.WAAPI,
+  ENDPOINTS: {
+    SEND_MESSAGE: '/client/action/send-message',
+    FETCH_MESSAGES: '/client/action/fetch-messages',
+    GET_MESSAGE: '/client/action/get-message-by-id'
+  },
+  HEADERS: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${ENV.WAAPI.ACCESS_TOKEN}`
+  }
+} as const;
