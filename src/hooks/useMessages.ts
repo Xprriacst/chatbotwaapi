@@ -1,36 +1,38 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useMessagesStore } from '../store/messages.store';
-import { WaAPIMessagesService } from '../services/waapi/messages.service';
-import { convertWAMessageToMessage } from '../utils/message.utils';
-import { WebSocketService } from '../services/websocket.service';
+import { MessagesService } from '../services/messages/messages.service';
+import { MESSAGES_CONFIG } from '../services/messages/messages.config';
 
 export function useMessages() {
   const { messages, addMessage, setMessages } = useMessagesStore();
+  const pollingInterval = useRef<NodeJS.Timeout>();
+
+  const loadMessages = useCallback(async () => {
+    try {
+      const fetchedMessages = await MessagesService.fetchMessages();
+      setMessages(fetchedMessages);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+    }
+  }, [setMessages]);
 
   useEffect(() => {
-    // Load initial messages
-    const loadMessages = async () => {
-      try {
-        const waMessages = await WaAPIMessagesService.fetchMessages();
-        const formattedMessages = waMessages.map(convertWAMessageToMessage);
-        setMessages(formattedMessages);
-      } catch (error) {
-        console.error('Failed to load messages:', error);
-      }
-    };
-
-    // Connect to WebSocket
-    WebSocketService.connect();
+    // Initial load
     loadMessages();
 
-    // Cleanup
+    // Setup polling
+    pollingInterval.current = setInterval(loadMessages, MESSAGES_CONFIG.POLLING_INTERVAL);
+
     return () => {
-      WebSocketService.disconnect();
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
     };
-  }, [setMessages]);
+  }, [loadMessages]);
 
   return {
     messages,
-    addMessage
+    addMessage,
+    refreshMessages: loadMessages
   };
 }
