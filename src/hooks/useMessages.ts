@@ -6,21 +6,38 @@ import { MESSAGES_CONFIG } from '../services/messages/messages.config';
 export function useMessages() {
   const { messages, addMessage, setMessages } = useMessagesStore();
   const pollingInterval = useRef<NodeJS.Timeout>();
+  const lastMessageId = useRef<string | null>(null);
 
   const loadMessages = useCallback(async () => {
     try {
       const fetchedMessages = await MessagesService.fetchMessages();
-      setMessages(fetchedMessages);
+      
+      // Vérifier les nouveaux messages
+      if (fetchedMessages.length > 0) {
+        const latestMessageId = fetchedMessages[0].id;
+        if (latestMessageId !== lastMessageId.current) {
+          lastMessageId.current = latestMessageId;
+          
+          // Mettre à jour uniquement avec les nouveaux messages
+          const newMessages = fetchedMessages.filter(msg => 
+            !messages.some(existing => existing.id === msg.id)
+          );
+          
+          if (newMessages.length > 0) {
+            setMessages([...messages, ...newMessages]);
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to load messages:', error);
     }
-  }, [setMessages]);
+  }, [messages, setMessages]);
 
   useEffect(() => {
-    // Initial load
+    // Chargement initial
     loadMessages();
 
-    // Setup polling
+    // Configuration du polling
     pollingInterval.current = setInterval(loadMessages, MESSAGES_CONFIG.POLLING_INTERVAL);
 
     return () => {
