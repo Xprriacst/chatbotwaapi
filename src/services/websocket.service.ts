@@ -9,41 +9,54 @@ export class WebSocketService {
   private static reconnectTimeout: NodeJS.Timeout | null = null;
 
   static connect() {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      console.log('WebSocket already connected');
+      return;
+    }
 
-    // Use secure WebSocket for production, regular for development
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/.netlify/functions/websocket`;
+    console.log('Connecting to WebSocket:', wsUrl);
     
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
-      console.log('WebSocket connected');
-      this.reconnectAttempts = 0;
-      if (this.reconnectTimeout) {
-        clearTimeout(this.reconnectTimeout);
-        this.reconnectTimeout = null;
-      }
+      console.log('WebSocket connected successfully');
+      // Test message to verify store functionality
+      useMessagesStore.getState().addMessage({
+        id: 'test-' + Date.now(),
+        text: 'Test message',
+        isBot: false,
+        timestamp: Date.now(),
+        status: 'sent'
+      });
     };
 
     this.ws.onmessage = (event) => {
+      console.log('Raw WebSocket message received:', event.data);
+      
       try {
         const data = JSON.parse(event.data) as WebhookEvent;
-        console.log('WebSocket message received:', data);
+        console.log('Parsed WebSocket message:', data);
         
         switch (data.event) {
           case 'message':
           case 'message_create': {
             const message = convertWAMessageToMessage(data.data.message);
+            console.log('Converting to message format:', message);
             useMessagesStore.getState().addMessage(message);
+            console.log('Current store state:', useMessagesStore.getState().messages);
             break;
           }
           case 'message_ack': {
+            console.log('Processing message_ack event');
             const message = convertWAMessageToMessage(data.data.message);
             const messages = useMessagesStore.getState().messages;
+            console.log('Current messages before update:', messages);
             const updatedMessages = messages.map(msg => 
               msg.id === message.id ? { ...msg, status: message.status } : msg
             );
+            console.log('Updated messages:', updatedMessages);
             useMessagesStore.getState().setMessages(updatedMessages);
             break;
           }
@@ -53,8 +66,8 @@ export class WebSocketService {
       }
     };
 
-    this.ws.onclose = () => {
-      console.log('WebSocket disconnected');
+    this.ws.onclose = (event) => {
+      console.log('WebSocket closed:', event);
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectTimeout = setTimeout(() => {
           console.log(`Attempting to reconnect (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
@@ -71,6 +84,7 @@ export class WebSocketService {
 
   static disconnect() {
     if (this.ws) {
+      console.log('Disconnecting WebSocket');
       this.ws.close();
       this.ws = null;
     }
