@@ -4,7 +4,6 @@ import { ChatInput } from './components/ChatInput';
 import { PhoneInput } from './components/PhoneInput';
 import { MessageSquare } from 'lucide-react';
 import { WaAPIService } from './services/waapi.service';
-import { WebSocketService } from './services/websocket.service';
 import { useMessagesStore } from './store/messages.store';
 
 function App() {
@@ -14,11 +13,6 @@ function App() {
 
   useEffect(() => {
     checkInstanceStatus();
-    WebSocketService.connect();
-
-    return () => {
-      WebSocketService.disconnect();
-    };
   }, []);
 
   const checkInstanceStatus = async () => {
@@ -39,7 +33,9 @@ function App() {
         text,
         isBot: false,
         timestamp: Date.now(),
-        status: 'sent' as const
+        status: 'sent' as const,
+        sender: recipientPhone,
+        recipient: recipientPhone
       };
       addMessage(message);
 
@@ -54,7 +50,9 @@ function App() {
         text: "Erreur lors de l'envoi du message. Veuillez réessayer.",
         isBot: true,
         timestamp: Date.now(),
-        status: 'sent'
+        status: 'sent',
+        sender: 'system',
+        recipient: recipientPhone
       });
     }
   };
@@ -74,12 +72,7 @@ function App() {
 
         <div className="h-[500px] overflow-y-auto p-4 space-y-4">
           {messages?.map((message) => (
-            <ChatMessage
-              key={message.id}
-              message={message.text}
-              isBot={message.isBot}
-              status={message.status}
-            />
+            <ChatMessage key={message.id} message={message} />
           ))}
         </div>
 
