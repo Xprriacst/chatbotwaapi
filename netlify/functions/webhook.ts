@@ -14,6 +14,12 @@ const handler: Handler = async (event) => {
     const payload = JSON.parse(event.body || '{}') as WebhookEvent;
     console.log('Received webhook event:', JSON.stringify(payload, null, 2));
 
+    // Transmettre l'événement au WebSocket
+    await fetch('/.netlify/functions/websocket', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
     switch (payload.event) {
       case 'message':
       case 'message_create': {
