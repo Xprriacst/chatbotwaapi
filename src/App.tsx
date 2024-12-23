@@ -5,15 +5,33 @@ import { PhoneInput } from './components/PhoneInput';
 import { MessageSquare } from 'lucide-react';
 import { WaAPIService } from './services/waapi.service';
 import { useMessagesStore } from './store/messages.store';
+import { useAuth } from './hooks/useAuth';
+import { supabase } from './services/supabase';
+import { ENV } from './config/env.config';
 
-function App() {
+export function App() {
   const [recipientPhone, setRecipientPhone] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { messages, addMessage } = useMessagesStore();
+  const { user } = useAuth();
 
   useEffect(() => {
     checkInstanceStatus();
+    initAuth();
   }, []);
+
+  const initAuth = async () => {
+    try {
+      if (!user) {
+        const { error } = await supabase.auth.signInAnonymously();
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Auth error:', error);
+      setError('Authentication failed. Please try again.');
+    }
+  };
 
   const checkInstanceStatus = async () => {
     try {
@@ -21,11 +39,13 @@ function App() {
       setIsConnected(status.status === 'connected');
     } catch (error) {
       console.error('Failed to check instance status:', error);
+      setError('Failed to connect to WhatsApp. Please try again.');
     }
   };
 
   const handleSendMessage = async (text: string) => {
     if (!recipientPhone || !text.trim()) return;
+    setError(null);
 
     try {
       const message = {
@@ -34,26 +54,22 @@ function App() {
         isBot: false,
         timestamp: Date.now(),
         status: 'sent' as const,
-        sender: recipientPhone,
+        sender: ENV.WAAPI.PHONE_NUMBER.replace('+', ''),
         recipient: recipientPhone
       };
+      
+      console.log('Sending message:', message);
       addMessage(message);
 
-      await WaAPIService.sendMessage({
+      const response = await WaAPIService.sendMessage({
         to: recipientPhone,
         message: text
       });
+
+      console.log('Message sent successfully:', response);
     } catch (error) {
       console.error('Failed to send message:', error);
-      addMessage({
-        id: `error-${Date.now()}`,
-        text: "Erreur lors de l'envoi du message. Veuillez réessayer.",
-        isBot: true,
-        timestamp: Date.now(),
-        status: 'sent',
-        sender: 'system',
-        recipient: recipientPhone
-      });
+      setError('Failed to send message. Please try again.');
     }
   };
 
@@ -69,6 +85,12 @@ function App() {
             {isConnected ? 'Connecté' : 'Déconnecté'}
           </div>
         </div>
+
+        {error && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
+            {error}
+          </div>
+        )}
 
         <div className="h-[500px] overflow-y-auto p-4 space-y-4">
           {messages?.map((message) => (
