@@ -1,55 +1,38 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { useMessagesStore } from '../store/messages.store';
-import { MessagesService } from '../services/messages/messages.service';
-import { MESSAGES_CONFIG } from '../services/messages/messages.config';
+import { MessageRepository } from '../services/messages/message.repository';
+import { useAuth } from './useAuth';
 
 export function useMessages() {
   const { messages, addMessage, setMessages } = useMessagesStore();
-  const pollingInterval = useRef<NodeJS.Timeout>();
-  const lastMessageId = useRef<string | null>(null);
+  const { user } = useAuth();
 
   const loadMessages = useCallback(async () => {
+    if (!user) return;
+
     try {
-      const fetchedMessages = await MessagesService.fetchMessages();
-      
-      // Vérifier les nouveaux messages
-      if (fetchedMessages.length > 0) {
-        const latestMessageId = fetchedMessages[0].id;
-        if (latestMessageId !== lastMessageId.current) {
-          lastMessageId.current = latestMessageId;
-          
-          // Mettre à jour uniquement avec les nouveaux messages
-          const newMessages = fetchedMessages.filter(msg => 
-            !messages.some(existing => existing.id === msg.id)
-          );
-          
-          if (newMessages.length > 0) {
-            setMessages([...messages, ...newMessages]);
-          }
-        }
-      }
+      await MessageRepository.syncMessages(user.id);
+      const fetchedMessages = await MessageRepository.getMessages(user.id);
+      setMessages(fetchedMessages);
     } catch (error) {
       console.error('Failed to load messages:', error);
     }
-  }, [messages, setMessages]);
+  }, [user, setMessages]);
 
-  useEffect(() => {
-    // Chargement initial
-    loadMessages();
+  const sendMessage = useCallback(async (text: string, recipientPhone: string) => {
+    if (!user) return;
 
-    // Configuration du polling
-    pollingInterval.current = setInterval(loadMessages, MESSAGES_CONFIG.POLLING_INTERVAL);
-
-    return () => {
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-      }
-    };
-  }, [loadMessages]);
+    try {
+      const message = await MessageRepository.sendMessage(text, recipientPhone, user.id);
+      addMessage(message);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  }, [user, addMessage]);
 
   return {
     messages,
-    addMessage,
+    sendMessage,
     refreshMessages: loadMessages
   };
 }
