@@ -14,33 +14,18 @@ const handler: Handler = async (event) => {
     const payload = JSON.parse(event.body || '{}') as WebhookEvent;
     console.log('Received webhook event:', JSON.stringify(payload, null, 2));
 
-    // Transmettre l'événement au WebSocket
-    await fetch('/.netlify/functions/websocket', {
+    // Transmettre l'événement au WebSocket en utilisant l'URL complète
+    const host = event.headers.host || 'localhost:8888';
+    const protocol = host.includes('localhost') ? 'http:' : 'https:';
+    const websocketUrl = `${protocol}//${host}/.netlify/functions/websocket`;
+
+    await fetch(websocketUrl, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(payload)
     });
-
-    switch (payload.event) {
-      case 'message':
-      case 'message_create': {
-        const message = convertWAMessageToMessage(payload.data.message);
-        console.log('Processing incoming message:', {
-          from: message.isBot ? 'bot' : 'user',
-          text: message.text,
-          timestamp: new Date(message.timestamp * 1000).toISOString()
-        });
-        break;
-      }
-      case 'message_ack': {
-        const message = convertWAMessageToMessage(payload.data.message);
-        console.log('Message status update:', {
-          id: message.id,
-          status: message.status,
-          timestamp: new Date(message.timestamp * 1000).toISOString()
-        });
-        break;
-      }
-    }
 
     return {
       statusCode: 200,
