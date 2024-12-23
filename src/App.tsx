@@ -4,25 +4,21 @@ import { ChatInput } from './components/ChatInput';
 import { PhoneInput } from './components/PhoneInput';
 import { MessageSquare } from 'lucide-react';
 import { WaAPIService } from './services/waapi.service';
-
-interface Message {
-  text: string;
-  isBot: boolean;
-}
-
-const INITIAL_MESSAGE: Message = {
-  text: "Bonjour ! Je suis votre assistant WhatsApp. Veuillez entrer le numéro de téléphone du destinataire.",
-  isBot: true,
-};
+import { WebSocketService } from './services/websocket.service';
+import { useMessages } from './hooks/useMessages';
 
 function App() {
-  const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [recipientPhone, setRecipientPhone] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
+  const { messages } = useMessages();
 
   useEffect(() => {
     checkInstanceStatus();
-  }, []);
+    WebSocketService.connect();
+
+    // Debug log pour vérifier les messages
+    console.log('Current messages in App:', messages);
+  }, [messages]); // Ajout de messages comme dépendance pour voir les mises à jour
 
   const checkInstanceStatus = async () => {
     try {
@@ -33,38 +29,8 @@ function App() {
     }
   };
 
-  const handlePhoneSubmit = (phone: string) => {
-    setRecipientPhone(phone);
-    setMessages(prev => [...prev, {
-      text: `Connecté au numéro ${phone}. Vous pouvez maintenant envoyer des messages.`,
-      isBot: true
-    }]);
-  };
-
-  const handleSendMessage = async (text: string) => {
-    // Add user message to chat
-    setMessages(prev => [...prev, { text, isBot: false }]);
-
-    try {
-      // Send message via WhatsApp
-      await WaAPIService.sendMessage({
-        to: recipientPhone,
-        message: text
-      });
-
-      // Add confirmation message
-      setMessages(prev => [...prev, {
-        text: "Message envoyé avec succès via WhatsApp",
-        isBot: true
-      }]);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      setMessages(prev => [...prev, {
-        text: "Erreur lors de l'envoi du message. Veuillez réessayer.",
-        isBot: true
-      }]);
-    }
-  };
+  // Debug render pour voir le contenu brut des messages
+  console.log('Rendering messages:', messages);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8 px-4">
@@ -80,13 +46,22 @@ function App() {
           </div>
         </div>
 
+        {/* Debug: Affichage brut des messages */}
+        <div className="p-2 bg-gray-100">
+          <p>Nombre de messages: {messages.length}</p>
+          <pre className="text-xs overflow-auto">
+            {JSON.stringify(messages, null, 2)}
+          </pre>
+        </div>
+
         {/* Chat messages */}
         <div className="h-[500px] overflow-y-auto p-4 space-y-4">
-          {messages.map((message, index) => (
+          {messages.map((message) => (
             <ChatMessage
-              key={index}
+              key={message.id}
               message={message.text}
               isBot={message.isBot}
+              status={message.status}
             />
           ))}
         </div>
@@ -94,7 +69,7 @@ function App() {
         {/* Input */}
         <div className="border-t p-4 bg-gray-50 space-y-4">
           {!recipientPhone ? (
-            <PhoneInput onPhoneSubmit={handlePhoneSubmit} />
+            <PhoneInput onPhoneSubmit={setRecipientPhone} />
           ) : (
             <ChatInput onSendMessage={handleSendMessage} />
           )}
