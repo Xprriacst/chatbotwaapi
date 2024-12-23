@@ -11,16 +11,16 @@ export class WebSocketService {
   static connect() {
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
-    // En développement, utilisez le serveur local
     const wsUrl = import.meta.env.DEV 
       ? `ws://localhost:${import.meta.env.VITE_WEBHOOK_PORT}`
       : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/.netlify/functions/websocket`;
     
+    console.log('Connecting to WebSocket:', wsUrl);
+    
     try {
       this.ws = new WebSocket(wsUrl);
-      
       this.ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('WebSocket connected successfully');
         this.reconnectAttempts = 0;
       };
 
@@ -35,6 +35,7 @@ export class WebSocketService {
 
   private static handleMessage = (event: MessageEvent) => {
     try {
+      console.log('Received WebSocket message:', event.data);
       const data = JSON.parse(event.data) as WebhookEvent;
       const store = useMessagesStore.getState();
       
@@ -42,11 +43,13 @@ export class WebSocketService {
         case 'message':
         case 'message_create': {
           const message = convertWAMessageToMessage(data.data.message);
+          console.log('Converting webhook message to app message:', message);
           store.addMessage(message);
           break;
         }
         case 'message_ack': {
           const message = convertWAMessageToMessage(data.data.message);
+          console.log('Updating message status:', message);
           const updatedMessages = store.messages.map(msg => 
             msg.id === message.id ? { ...msg, status: message.status } : msg
           );
@@ -60,6 +63,7 @@ export class WebSocketService {
   };
 
   private static handleClose = () => {
+    console.log('WebSocket connection closed');
     this.attemptReconnect();
   };
 
@@ -69,6 +73,7 @@ export class WebSocketService {
 
   private static attemptReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      console.log(`Attempting to reconnect (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
       this.reconnectTimeout = setTimeout(() => {
         this.reconnectAttempts++;
         this.connect();
@@ -77,6 +82,7 @@ export class WebSocketService {
   }
 
   static disconnect() {
+    console.log('Disconnecting WebSocket');
     if (this.ws) {
       this.ws.close();
       this.ws = null;
