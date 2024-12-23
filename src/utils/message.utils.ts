@@ -6,7 +6,8 @@ export function convertWAMessageToMessage(waMessage: WAMessage): Message {
   return {
     id: waMessage.id._serialized,
     text: waMessage.body,
-    isBot: waMessage.from !== ENV.WAAPI.PHONE_NUMBER,
+    // Correction : un message est "bot" s'il n'est PAS fromMe
+    isBot: !waMessage.fromMe,
     timestamp: waMessage.timestamp,
     status: convertAckToStatus(waMessage.ack)
   };
