@@ -1,17 +1,19 @@
 import React from 'react';
 import { Bot, User, Check, CheckCheck } from 'lucide-react';
+import { Message } from '../types/message.types';
+import { WAAPI_CONFIG } from '../config/constants';
 
 interface ChatMessageProps {
-  message: string;
-  isBot: boolean;
-  status?: 'sent' | 'delivered' | 'read';
+  message: Message;
 }
 
-export function ChatMessage({ message, isBot, status }: ChatMessageProps) {
+export function ChatMessage({ message }: ChatMessageProps) {
+  const isFromBusiness = message.sender === WAAPI_CONFIG.PHONE_NUMBER.replace('+', '');
+
   const StatusIcon = () => {
-    if (!status || isBot) return null;
+    if (!message.status || isFromBusiness) return null;
     
-    switch (status) {
+    switch (message.status) {
       case 'delivered':
         return <Check className="w-4 h-4 text-gray-400" />;
       case 'read':
@@ -22,19 +24,22 @@ export function ChatMessage({ message, isBot, status }: ChatMessageProps) {
   };
 
   return (
-    <div className={`flex gap-3 ${isBot ? '' : 'flex-row-reverse'}`}>
+    <div className={`flex gap-3 ${isFromBusiness ? '' : 'flex-row-reverse'}`}>
       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-        isBot ? 'bg-blue-500' : 'bg-green-500'
+        isFromBusiness ? 'bg-blue-500' : 'bg-green-500'
       }`}>
-        {isBot ? <Bot className="w-5 h-5 text-white" /> : <User className="w-5 h-5 text-white" />}
+        {isFromBusiness ? 
+          <Bot className="w-5 h-5 text-white" /> : 
+          <User className="w-5 h-5 text-white" />
+        }
       </div>
       <div className="flex flex-col gap-1">
         <div className={`max-w-[80%] px-4 py-2 rounded-2xl ${
-          isBot ? 'bg-gray-100' : 'bg-blue-500 text-white'
+          isFromBusiness ? 'bg-gray-100' : 'bg-blue-500 text-white'
         }`}>
-          <p className="text-sm">{message}</p>
+          <p className="text-sm">{message.text}</p>
         </div>
-        {!isBot && status && (
+        {!isFromBusiness && message.status && (
           <div className="flex justify-end">
             <StatusIcon />
           </div>
