@@ -1,58 +1,52 @@
-import { ENV } from '../../config/env.config';
-import { WAMessage } from '../../types/waapi.types';
+import { Handler } from '@netlify/functions';
+import { WebhookEvent } from '../../src/types/waapi.types';
+import { convertWAMessageToMessage } from './utils';
 
-interface FetchMessagesParams {
-  limit?: number;
-  cursor?: string;
-}
-
-export class WaAPIMessagesService {
-  private static headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${ENV.WAAPI.ACCESS_TOKEN}`
-  };
-
-  static async fetchMessages({ limit = 50, cursor }: FetchMessagesParams = {}) {
-    try {
-      const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/fetch-messages`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify({ limit, cursor })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch messages');
-      }
-
-      const data = await response.json();
-      return data.data.messages as WAMessage[];
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      throw error;
-    }
+const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: 'Method Not Allowed'
+    };
   }
 
-  static async getMessageById(messageId: string) {
-    try {
-      const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/get-message-by-id`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify({ messageId })
-      });
+  try {
+    const payload = JSON.parse(event.body || '{}') as WebhookEvent;
+    console.log('Received webhook event:', JSON.stringify(payload, null, 2));
 
-      if (!response.ok) {
-        throw new Error('Failed to get message');
+    switch (payload.event) {
+      case 'message':
+      case 'message_create': {
+        const message = convertWAMessageToMessage(payload.data.message);
+        console.log('Processing incoming message:', {
+          from: message.isBot ? 'bot' : 'user',
+          text: message.text,
+          timestamp: new Date(message.timestamp * 1000).toISOString()
+        });
+        break;
       }
-
-      const data = await response.json();
-      return data.data.message as WAMessage;
-    } catch (error) {
-      console.error('Error getting message:', error);
-      throw error;
+      case 'message_ack': {
+        const message = convertWAMessageToMessage(payload.data.message);
+        console.log('Message status update:', {
+          id: message.id,
+          status: message.status,
+          timestamp: new Date(message.timestamp * 1000).toISOString()
+        });
+        break;
+      }
     }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ status: 'success' })
+    };
+  } catch (error) {
+    console.error('Error processing webhook:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Internal server error' })
+    };
   }
-}
+};
+
+export { handler };
