@@ -3,12 +3,19 @@ import { WaAPIService } from '../waapi.service';
 import { Message } from '../../types/message.types';
 import { MessageRepository } from './message.repository';
 import { WAAPI_CONFIG } from '../../config/constants';
+import { ENV } from '../../config/env.config';
 
 export class AutoReplyService {
   static async handleIncomingMessage(message: Message, userId: string): Promise<void> {
     try {
       // Only process messages not from the business number
       if (message.sender === WAAPI_CONFIG.PHONE_NUMBER.replace('+', '')) {
+        return;
+      }
+
+      // Skip AI response if OpenAI is not configured
+      if (!ENV.OPENAI?.API_KEY) {
+        console.log('OpenAI not configured, skipping auto-reply');
         return;
       }
 
