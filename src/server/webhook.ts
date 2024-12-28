@@ -1,4 +1,16 @@
-import express from 'express';
+VITE_WAAPI_ACCESS_TOKEN=votre_token
+VITE_WAAPI_INSTANCE_ID=32696
+VITE_WAAPI_PHONE_NUMBER=votre_numéro
+VITE_WAAPI_BASE_URL=https://waapi.app/api/v1
+VITE_SUPABASE_URL=votre_url_supabase
+VITE_SUPABASE_ANON_KEY=votre_clé_supabase
+
+WAAPI_ACCESS_TOKEN=votre_token
+WAAPI_INSTANCE_ID=32696
+WAAPI_PHONE_NUMBER=votre_numéro
+WAAPI_BASE_URL=https://waapi.app/api/v1
+SUPABASE_URL=votre_url_supabase
+SUPABASE_ANON_KEY=votre_clé_supabaseimport express from 'express';
 import cors from 'cors';
 import { ENV } from '../config/env.config';
 
