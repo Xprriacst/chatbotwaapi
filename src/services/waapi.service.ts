@@ -24,6 +24,11 @@ interface SendMessageParams {
 }
 
 export class WaAPIService {
+  private static headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${WAAPI_CONFIG.ACCESS_TOKEN}`
+  };
+
   static async sendMessage({ to, message }: SendMessageParams) {
     try {
       const formattedPhone = formatPhoneNumber(to);
@@ -43,9 +48,9 @@ export class WaAPIService {
         }
       );
 
-      if (!response.ok) {
-        console.error('WAAPI error response:', response.data);
-        throw new Error(response.data.message || 'Failed to send message');
+      if (axios.isAxiosError(response) && response.response) {
+        console.error('WAAPI error response:', response.response.data);
+        throw new Error(response.response.data.message || 'Failed to send message');
       }
 
       console.log('WAAPI success response:', response.data);
@@ -78,12 +83,13 @@ export class WaAPIService {
         `/instances/${WAAPI_CONFIG.INSTANCE_ID}`
       );
 
-      console.log('Instance status response:', response.data);
-      
-      if (!response.ok) {
-        throw new Error(response.data.message || 'Failed to get instance status');
+      if (axios.isAxiosError(response) && response.response) {
+        console.error('WAAPI error response:', response.response.data);
+        throw new Error(response.response.data.message || 'Failed to get instance status');
       }
 
+      console.log('Instance status response:', response.data);
+      
       return response.data;
     } catch (error) {
       console.error('Error in getInstanceStatus:', error);
@@ -100,9 +106,9 @@ export class WaAPIService {
         }
       );
 
-      if (!response.ok) {
-        console.error('WAAPI error response:', response.data);
-        throw new Error(response.data.message || 'Failed to fetch messages');
+      if (axios.isAxiosError(response) && response.response) {
+        console.error('WAAPI error response:', response.response.data);
+        throw new Error(response.response.data.message || 'Failed to fetch messages');
       }
 
       console.log('WAAPI success response:', response.data);
