@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+declare global {
+  const __WAAPI_ACCESS_TOKEN__: string;
+  const __WAAPI_INSTANCE_ID__: string;
+  const __WAAPI_PHONE_NUMBER__: string;
+  const __WAAPI_BASE_URL__: string;
+  const __SUPABASE_URL__: string;
+  const __SUPABASE_ANON_KEY__: string;
+}
+
 // Schema for environment variables
 const envSchema = z.object({
   WAAPI: z.object({
@@ -17,28 +26,19 @@ const envSchema = z.object({
   }).optional()
 });
 
-// Get environment variables with fallback to non-VITE_ prefixed versions
-const getEnvVar = (name: string): string => {
-  const viteVar = import.meta.env[`VITE_${name}`];
-  const normalVar = import.meta.env[name];
-  return viteVar || normalVar || '';
-};
-
 // Environment variables
 export const ENV = {
   WAAPI: {
-    ACCESS_TOKEN: getEnvVar('WAAPI_ACCESS_TOKEN'),
-    INSTANCE_ID: getEnvVar('WAAPI_INSTANCE_ID'),
-    PHONE_NUMBER: getEnvVar('WAAPI_PHONE_NUMBER'),
-    BASE_URL: getEnvVar('WAAPI_BASE_URL')
+    ACCESS_TOKEN: __WAAPI_ACCESS_TOKEN__,
+    INSTANCE_ID: __WAAPI_INSTANCE_ID__,
+    PHONE_NUMBER: __WAAPI_PHONE_NUMBER__,
+    BASE_URL: __WAAPI_BASE_URL__
   },
   SUPABASE: {
-    URL: getEnvVar('SUPABASE_URL'),
-    ANON_KEY: getEnvVar('SUPABASE_ANON_KEY')
+    URL: __SUPABASE_URL__,
+    ANON_KEY: __SUPABASE_ANON_KEY__
   },
-  OPENAI: getEnvVar('OPENAI_API_KEY') ? {
-    API_KEY: getEnvVar('OPENAI_API_KEY')
-  } : undefined
+  OPENAI: undefined
 } as const;
 
 // Validate environment variables
