@@ -2,25 +2,20 @@ import { Handler } from '@netlify/functions';
 import { WebhookEvent } from '../../src/types/waapi.types';
 import { createClient } from '@supabase/supabase-js';
 import { convertWAMessageToMessage } from '../../src/utils/message.utils';
+import { SERVER_ENV, validateServerEnv } from '../../src/config/server.config';
 
-// Vérification des variables d'environnement
-const requiredEnvVars = [
-  'SUPABASE_URL',
-  'SUPABASE_ANON_KEY',
-  'WAAPI_ACCESS_TOKEN',
-  'WAAPI_INSTANCE_ID'
-];
-
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    throw new Error(`Missing required environment variable: ${envVar}`);
-  }
+// Validate server environment variables
+try {
+  validateServerEnv();
+} catch (error) {
+  console.error('Server environment validation failed:', error);
+  throw error;
 }
 
 // Initialize Supabase client
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  SERVER_ENV.SUPABASE.URL,
+  SERVER_ENV.SUPABASE.ANON_KEY
 );
 
 export const handler: Handler = async (event) => {
@@ -56,10 +51,10 @@ export const handler: Handler = async (event) => {
     }
 
     // Verify instance ID
-    if (payload.instanceId !== process.env.WAAPI_INSTANCE_ID) {
+    if (payload.instanceId !== SERVER_ENV.WAAPI.INSTANCE_ID) {
       console.error('Invalid instance ID:', {
         received: payload.instanceId,
-        expected: process.env.WAAPI_INSTANCE_ID
+        expected: SERVER_ENV.WAAPI.INSTANCE_ID
       });
       return {
         statusCode: 401,
