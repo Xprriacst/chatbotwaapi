@@ -1,9 +1,6 @@
-import { OpenAIService } from '../ai/openai.service';
-import { WaAPIService } from '../waapi.service';
 import { Message } from '../../types/message.types';
 import { MessageRepository } from './message.repository';
 import { WAAPI_CONFIG } from '../../config/constants';
-import { ENV } from '../../config/env.config';
 import { formatPhoneNumber } from '../../utils/phone.utils';
 
 export class AutoReplyService {
@@ -20,33 +17,32 @@ export class AutoReplyService {
         return;
       }
 
-      // Skip AI response if OpenAI is not configured
-      if (!ENV.OPENAI?.API_KEY) {
-        console.log('OpenAI not configured, skipping auto-reply');
-        return;
-      }
-
-      // Generate AI response
-      const aiResponse = await OpenAIService.generateResponse(message.text);
-
-      // Send the response
-      const response = await WaAPIService.sendMessage({
-        to: message.sender,
-        message: aiResponse
+      // Save message to repository
+      await MessageRepository.saveMessage({
+        id: message.id,
+        text: message.text,
+        sender: message.sender,
+        timestamp: message.timestamp,
+        userId: userId
       });
 
-      // Save the AI response to the database
-      const responseMessage: Message = {
-        id: response.data.message.id._serialized,
-        text: aiResponse,
-        isBot: true,
-        timestamp: Date.now(),
-        status: 'sent',
-        sender: WAAPI_CONFIG.PHONE_NUMBER.replace('+', ''),
-        recipient: message.sender
-      };
+      // Send auto-reply
+      const response = await fetch(
+        `${WAAPI_CONFIG.BASE_URL}/instances/${WAAPI_CONFIG.INSTANCE_ID}/client/action/send-message`,
+        {
+          method: 'POST',
+          headers: this.headers,
+          body: JSON.stringify({
+            chatId: message.sender,
+            text: 'Merci pour votre message. Je vous répondrai dès que possible.'
+          })
+        }
+      );
 
-      await MessageRepository.saveMessage(responseMessage, userId);
+      if (!response.ok) {
+        throw new Error('Failed to send auto-reply');
+      }
+
     } catch (error) {
       console.error('Error handling auto-reply:', error);
     }
