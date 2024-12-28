@@ -17,20 +17,27 @@ const envSchema = z.object({
   }).optional()
 });
 
+// Get environment variables with fallback to non-VITE_ prefixed versions
+const getEnvVar = (name: string): string => {
+  const viteVar = import.meta.env[`VITE_${name}`];
+  const normalVar = import.meta.env[name];
+  return viteVar || normalVar || '';
+};
+
 // Environment variables
 export const ENV = {
   WAAPI: {
-    ACCESS_TOKEN: import.meta.env.VITE_WAAPI_ACCESS_TOKEN,
-    INSTANCE_ID: import.meta.env.VITE_WAAPI_INSTANCE_ID,
-    PHONE_NUMBER: import.meta.env.VITE_WAAPI_PHONE_NUMBER,
-    BASE_URL: import.meta.env.VITE_WAAPI_BASE_URL
+    ACCESS_TOKEN: getEnvVar('WAAPI_ACCESS_TOKEN'),
+    INSTANCE_ID: getEnvVar('WAAPI_INSTANCE_ID'),
+    PHONE_NUMBER: getEnvVar('WAAPI_PHONE_NUMBER'),
+    BASE_URL: getEnvVar('WAAPI_BASE_URL')
   },
   SUPABASE: {
-    URL: import.meta.env.VITE_SUPABASE_URL,
-    ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY
+    URL: getEnvVar('SUPABASE_URL'),
+    ANON_KEY: getEnvVar('SUPABASE_ANON_KEY')
   },
-  OPENAI: import.meta.env.VITE_OPENAI_API_KEY ? {
-    API_KEY: import.meta.env.VITE_OPENAI_API_KEY
+  OPENAI: getEnvVar('OPENAI_API_KEY') ? {
+    API_KEY: getEnvVar('OPENAI_API_KEY')
   } : undefined
 } as const;
 
