@@ -19,14 +19,15 @@ for (const envVar of requiredEnvVars) {
 
 // Initialize Supabase client
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
 );
 
 export const handler: Handler = async (event) => {
   console.log('Webhook received request:', {
     method: event.httpMethod,
-    path: event.path
+    path: event.path,
+    headers: event.headers
   });
 
   if (event.httpMethod !== 'POST') {
@@ -56,7 +57,10 @@ export const handler: Handler = async (event) => {
 
     // Verify instance ID
     if (payload.instanceId !== process.env.WAAPI_INSTANCE_ID) {
-      console.error('Invalid instance ID');
+      console.error('Invalid instance ID:', {
+        received: payload.instanceId,
+        expected: process.env.WAAPI_INSTANCE_ID
+      });
       return {
         statusCode: 401,
         body: JSON.stringify({ error: 'Invalid instance ID' })
@@ -122,7 +126,7 @@ export const handler: Handler = async (event) => {
     console.error('Error processing webhook:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Internal server error', details: error })
     };
   }
 };
