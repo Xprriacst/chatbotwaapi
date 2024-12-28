@@ -49,14 +49,20 @@ export function App() {
     setError(null);
 
     try {
-      const { message } = await WaAPIService.sendMessage({
+      const response = await WaAPIService.sendMessage({
         to: recipientPhone,
         message: text
       });
 
-      console.log('Message sent, saving to database:', message);
-      await MessageRepository.saveMessage(message, user.id);
-      addMessage(message);
+      if (response.status === 'success') {
+        const message = response.message;
+        console.log('Message sent, saving to database:', message);
+        await MessageRepository.saveMessage(message, user.id);
+        addMessage(message);
+      } else {
+        console.error('Failed to send message:', response);
+        setError('Failed to send message. Please try again.');
+      }
     } catch (error) {
       console.error('Failed to send message:', error);
       setError('Failed to send message. Please try again.');

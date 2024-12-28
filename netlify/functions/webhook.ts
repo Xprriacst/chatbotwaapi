@@ -29,7 +29,7 @@ export const handler: Handler = async (event) => {
     console.log('Received webhook event:', {
       type: payload.event,
       instanceId: payload.instanceId,
-      messageId: payload.data?.message?.id?._serialized,
+      messageData: payload.data?.message
     });
 
     // Validate webhook payload
@@ -47,9 +47,10 @@ export const handler: Handler = async (event) => {
       case 'message_create': {
         if (payload.data.message) {
           const message = convertWAMessageToMessage(payload.data.message);
+          console.log('Converted message:', message);
           
           // Save to Supabase
-          const { error } = await supabase
+          const { error: saveError } = await supabase
             .from('messages')
             .insert({
               wa_message_id: message.id,
@@ -57,28 +58,32 @@ export const handler: Handler = async (event) => {
               is_bot: message.isBot,
               timestamp: new Date(message.timestamp),
               status: message.status,
-              user_id: payload.instanceId // Using instanceId as userId
+              user_id: payload.instanceId,
+              from: message.from,
+              to: message.to
             });
 
-          if (error) {
-            console.error('Error saving message to Supabase:', error);
+          if (saveError) {
+            console.error('Error saving message to Supabase:', saveError);
             return {
               statusCode: 500,
-              body: JSON.stringify({ error: 'Failed to save message' })
+              body: JSON.stringify({ error: 'Failed to save message', details: saveError })
             };
           }
+
+          console.log('Successfully saved message to Supabase');
         }
         break;
       }
       case 'message_ack': {
         if (payload.data.message?.id?._serialized) {
-          const { error } = await supabase
+          const { error: updateError } = await supabase
             .from('messages')
             .update({ status: payload.data.message.ack })
             .eq('wa_message_id', payload.data.message.id._serialized);
 
-          if (error) {
-            console.error('Error updating message status:', error);
+          if (updateError) {
+            console.error('Error updating message status:', updateError);
           }
         }
         break;
