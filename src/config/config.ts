@@ -1,14 +1,5 @@
 import { z } from 'zod';
 
-declare global {
-  const __WAAPI_ACCESS_TOKEN__: string;
-  const __WAAPI_INSTANCE_ID__: string;
-  const __WAAPI_PHONE_NUMBER__: string;
-  const __WAAPI_BASE_URL__: string;
-  const __SUPABASE_URL__: string;
-  const __SUPABASE_ANON_KEY__: string;
-}
-
 // Schema for environment variables
 const envSchema = z.object({
   WAAPI: z.object({
@@ -20,31 +11,27 @@ const envSchema = z.object({
   SUPABASE: z.object({
     URL: z.string().url('Supabase URL must be a valid URL'),
     ANON_KEY: z.string().min(1, 'Supabase anonymous key is required')
-  }),
-  OPENAI: z.object({
-    API_KEY: z.string().optional()
-  }).optional()
+  })
 });
 
-// Environment variables
-export const ENV = {
+// Environment configuration
+export const CONFIG = {
   WAAPI: {
-    ACCESS_TOKEN: __WAAPI_ACCESS_TOKEN__,
-    INSTANCE_ID: __WAAPI_INSTANCE_ID__,
-    PHONE_NUMBER: __WAAPI_PHONE_NUMBER__,
-    BASE_URL: __WAAPI_BASE_URL__
+    ACCESS_TOKEN: import.meta.env.VITE_WAAPI_ACCESS_TOKEN || process.env.WAAPI_ACCESS_TOKEN || '',
+    INSTANCE_ID: import.meta.env.VITE_WAAPI_INSTANCE_ID || process.env.WAAPI_INSTANCE_ID || '',
+    PHONE_NUMBER: import.meta.env.VITE_WAAPI_PHONE_NUMBER || process.env.WAAPI_PHONE_NUMBER || '',
+    BASE_URL: import.meta.env.VITE_WAAPI_BASE_URL || process.env.WAAPI_BASE_URL || 'https://waapi.app/api/v1'
   },
   SUPABASE: {
-    URL: __SUPABASE_URL__,
-    ANON_KEY: __SUPABASE_ANON_KEY__
-  },
-  OPENAI: undefined
+    URL: import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+    ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
+  }
 } as const;
 
 // Validate environment variables
-const validateEnv = () => {
+export const validateConfig = () => {
   try {
-    envSchema.parse(ENV);
+    envSchema.parse(CONFIG);
   } catch (error) {
     console.error('Environment validation failed:', error);
     const missingVars = (error as z.ZodError).issues.map(issue => 
@@ -53,7 +40,3 @@ const validateEnv = () => {
     throw new Error(`Missing or invalid environment variables: ${missingVars}`);
   }
 };
-
-validateEnv();
-
-export type EnvConfig = typeof ENV;

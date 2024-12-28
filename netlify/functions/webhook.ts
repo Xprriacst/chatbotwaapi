@@ -19,10 +19,9 @@ for (const envVar of requiredEnvVars) {
 }
 
 // Initialize Supabase client
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
-);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const handler: Handler = async (event) => {
   console.log('Webhook received request:', {
