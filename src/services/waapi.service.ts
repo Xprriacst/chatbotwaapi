@@ -2,13 +2,26 @@ import { formatPhoneNumber } from '../utils/phone.utils';
 import { Message } from '../types/message.types';
 import axios from 'axios';
 
-const WAAPI_CONFIG = {
+// WAAPI configuration for browser
+const BROWSER_CONFIG = {
   ACCESS_TOKEN: import.meta.env.VITE_WAAPI_ACCESS_TOKEN,
   INSTANCE_ID: import.meta.env.VITE_WAAPI_INSTANCE_ID,
   BASE_URL: import.meta.env.VITE_WAAPI_BASE_URL || 'https://waapi.app/api/v1',
   PHONE_NUMBER: import.meta.env.VITE_WAAPI_PHONE_NUMBER
-};
+} as const;
 
+// WAAPI configuration for Netlify functions
+const NETLIFY_CONFIG = {
+  ACCESS_TOKEN: process.env.WAAPI_ACCESS_TOKEN,
+  INSTANCE_ID: process.env.WAAPI_INSTANCE_ID,
+  BASE_URL: process.env.WAAPI_BASE_URL || 'https://waapi.app/api/v1',
+  PHONE_NUMBER: process.env.WAAPI_PHONE_NUMBER
+} as const;
+
+// Use appropriate config based on environment
+export const WAAPI_CONFIG = typeof window === 'undefined' ? NETLIFY_CONFIG : BROWSER_CONFIG;
+
+// Create axios instance
 const waapi = axios.create({
   baseURL: WAAPI_CONFIG.BASE_URL,
   headers: {
@@ -21,6 +34,16 @@ const waapi = axios.create({
 interface SendMessageParams {
   to: string;
   message: string;
+}
+
+interface GetInstanceStatusResponse {
+  instance: {
+    id: number;
+    owner: string;
+    webhook_url: string;
+    webhook_events: string[];
+  };
+  status: string;
 }
 
 export class WaAPIService {
@@ -79,7 +102,7 @@ export class WaAPIService {
         url: `${WAAPI_CONFIG.BASE_URL}/instances/${WAAPI_CONFIG.INSTANCE_ID}`
       });
 
-      const response = await waapi.get(
+      const response = await waapi.get<GetInstanceStatusResponse>(
         `/instances/${WAAPI_CONFIG.INSTANCE_ID}`
       );
 
