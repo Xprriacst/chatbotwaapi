@@ -1,35 +1,39 @@
 import { Handler } from '@netlify/functions';
 import { WebhookEvent } from '../../src/types/waapi.types';
-import { createClient } from '@supabase/supabase-js';
-import { convertWAMessageToMessage } from '../../src/utils/message.utils';
+import { Message } from '../../src/types/message.types';
+import { createSupabaseClient } from '../../src/services/supabase';
+import { formatPhoneNumber } from '../../src/utils/phone.utils';
 
-// Vérification des variables d'environnement requises
-const requiredEnvVars = [
-  'SUPABASE_URL',
-  'SUPABASE_ANON_KEY',
+// Configuration validation
+const REQUIRED_ENV_VARS = [
   'WAAPI_ACCESS_TOKEN',
-  'WAAPI_INSTANCE_ID'
+  'WAAPI_INSTANCE_ID',
+  'WAAPI_PHONE_NUMBER',
+  'WAAPI_BASE_URL',
+  'SUPABASE_URL',
+  'SUPABASE_ANON_KEY'
 ] as const;
 
-// Vérifie que toutes les variables requises sont définies
-for (const envVar of requiredEnvVars) {
+// Validate environment variables
+for (const envVar of REQUIRED_ENV_VARS) {
   if (!process.env[envVar]) {
     throw new Error(`Missing required environment variable: ${envVar}`);
   }
 }
 
+// WAAPI configuration
+const WAAPI_CONFIG = {
+  ACCESS_TOKEN: process.env.WAAPI_ACCESS_TOKEN,
+  INSTANCE_ID: process.env.WAAPI_INSTANCE_ID,
+  PHONE_NUMBER: process.env.WAAPI_PHONE_NUMBER,
+  BASE_URL: process.env.WAAPI_BASE_URL
+} as const;
+
 // Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createSupabaseClient();
 
 export const handler: Handler = async (event) => {
-  console.log('Webhook received request:', {
-    method: event.httpMethod,
-    path: event.path,
-    headers: event.headers
-  });
-
+  // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -39,12 +43,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const payload = JSON.parse(event.body || '{}') as WebhookEvent;
-    
-    console.log('Received webhook event:', {
-      type: payload.event,
-      instanceId: payload.instanceId,
-      messageData: payload.data?.message
-    });
+    console.log('Received webhook event:', payload);
 
     // Validate webhook payload
     if (!payload.event || !payload.instanceId || !payload.data) {
@@ -56,10 +55,10 @@ export const handler: Handler = async (event) => {
     }
 
     // Verify instance ID
-    if (payload.instanceId !== process.env.WAAPI_INSTANCE_ID) {
+    if (payload.instanceId !== WAAPI_CONFIG.INSTANCE_ID) {
       console.error('Invalid instance ID:', {
         received: payload.instanceId,
-        expected: process.env.WAAPI_INSTANCE_ID
+        expected: WAAPI_CONFIG.INSTANCE_ID
       });
       return {
         statusCode: 401,
@@ -72,61 +71,59 @@ export const handler: Handler = async (event) => {
       case 'message':
       case 'message_create': {
         if (payload.data.message) {
-          const message = convertWAMessageToMessage(payload.data.message);
-          console.log('Converted message:', message);
-          
-          // Save to Supabase
-          const { error: saveError } = await supabase
+          const message: Message = {
+            id: payload.data.message.id._serialized,
+            text: payload.data.message.body,
+            timestamp: new Date(payload.data.message.timestamp * 1000).getTime(),
+            status: 'received',
+            isBot: false,
+            from: formatPhoneNumber(payload.data.message.from) || '',
+            to: WAAPI_CONFIG.PHONE_NUMBER
+          };
+
+          console.log('Saving message to database:', message);
+
+          const { error: dbError } = await supabase
             .from('messages')
-            .insert({
-              wa_message_id: message.id,
-              text: message.text,
-              is_bot: message.isBot,
-              timestamp: new Date(message.timestamp),
-              status: message.status,
-              user_id: payload.instanceId,
-              from: message.from,
-              to: message.to
-            });
+            .insert(message);
 
-          if (saveError) {
-            console.error('Error saving message to Supabase:', saveError);
-            return {
-              statusCode: 500,
-              body: JSON.stringify({ error: 'Failed to save message', details: saveError })
-            };
+          if (dbError) {
+            console.error('Error saving message to database:', dbError);
+            throw dbError;
           }
-
-          console.log('Successfully saved message to Supabase');
         }
         break;
       }
       case 'message_ack': {
         if (payload.data.message?.id?._serialized) {
-          const { error: updateError } = await supabase
+          console.log('Updating message status:', {
+            id: payload.data.message.id._serialized,
+            status: payload.data.message.ack
+          });
+
+          const { error: dbError } = await supabase
             .from('messages')
             .update({ status: payload.data.message.ack })
-            .eq('wa_message_id', payload.data.message.id._serialized);
+            .eq('id', payload.data.message.id._serialized);
 
-          if (updateError) {
-            console.error('Error updating message status:', updateError);
+          if (dbError) {
+            console.error('Error updating message status:', dbError);
+            throw dbError;
           }
         }
         break;
       }
     }
 
-    // Always return success to WAAPI
     return {
       statusCode: 200,
       body: JSON.stringify({ success: true })
     };
-
   } catch (error) {
     console.error('Error processing webhook:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error', details: error })
+      body: JSON.stringify({ error: 'Internal server error' })
     };
   }
 };
