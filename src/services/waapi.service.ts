@@ -48,16 +48,16 @@ export class WaAPIService {
 
       // Create a Message object from the response
       const sentMessage: Message = {
-        id: data.data.message.id._serialized,
+        id: data.id || `${Date.now()}_${Math.random()}`,
         text: message,
-        isBot: false,
         timestamp: Date.now(),
         status: 'sent',
-        sender: ENV.WAAPI.PHONE_NUMBER.replace('+', ''),
-        recipient: to.replace('+', '')
+        isBot: false,
+        from: ENV.WAAPI.PHONE_NUMBER,
+        to: formattedPhone
       };
 
-      return { data, message: sentMessage };
+      return sentMessage;
     } catch (error) {
       console.error('Error in sendMessage:', error);
       throw error;
