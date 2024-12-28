@@ -10,44 +10,80 @@ WAAPI_INSTANCE_ID=32696
 WAAPI_PHONE_NUMBER=votre_numéro
 WAAPI_BASE_URL=https://waapi.app/api/v1
 SUPABASE_URL=votre_url_supabase
-SUPABASE_ANON_KEY=votre_clé_supabaseimport express from 'express';
+SUPABASE_ANON_KEY=votre_clé_supabase
+
+import express from 'express';
 import cors from 'cors';
-import { ENV } from '../config/env.config';
+import { WAAPI_CONFIG } from '../config/constants';
+import { WebhookEvent } from '../types/waapi.types';
+import { MessagesService } from '../services/messages/messages.service';
+import { AutoReplyService } from '../services/messages/auto-reply.service';
+import { convertWAMessageToMessage } from '../utils/message.utils';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Webhook endpoint
-app.post('/webhook', (req, res) => {
-  const event = req.body;
-  console.log('Received webhook event:', event);
+const router = express.Router();
 
-  // Handle different event types
-  switch (event.type) {
-    case 'message':
-      handleMessage(event.data);
-      break;
-    case 'message_ack':
-      handleMessageAck(event.data);
-      break;
-    // Add other event handlers as needed
+router.post('/webhook', async (req: express.Request, res: express.Response) => {
+  try {
+    const payload = req.body as WebhookEvent;
+    console.log('Received webhook event:', payload);
+
+    // Validate webhook payload
+    if (!payload.event || !payload.instanceId || !payload.data) {
+      console.error('Invalid webhook payload - missing required fields');
+      return res.status(400).json({ error: 'Invalid webhook payload structure' });
+    }
+
+    // Verify instance ID
+    if (payload.instanceId !== WAAPI_CONFIG.INSTANCE_ID) {
+      console.error('Invalid instance ID:', {
+        received: payload.instanceId,
+        expected: WAAPI_CONFIG.INSTANCE_ID
+      });
+      return res.status(401).json({ error: 'Invalid instance ID' });
+    }
+
+    // Handle different webhook events
+    switch (payload.event) {
+      case 'message':
+      case 'message_create': {
+        if (payload.data.message) {
+          const message = convertWAMessageToMessage(payload.data.message);
+          console.log('Converted message:', message);
+
+          // Save message to database
+          await MessagesService.saveMessage(message);
+
+          // Handle auto-reply if needed
+          await AutoReplyService.handleIncomingMessage(message, payload.instanceId);
+        }
+        break;
+      }
+      case 'message_ack': {
+        if (payload.data.message?.id?._serialized) {
+          await MessagesService.updateMessageStatus(
+            payload.data.message.id._serialized,
+            payload.data.message.ack
+          );
+        }
+        break;
+      }
+    }
+
+    // Always return success to WAAPI
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error processing webhook:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  res.status(200).send('OK');
 });
 
-function handleMessage(data: any) {
-  // Handle incoming messages
-  console.log('New message received:', data);
-}
+app.use('/webhook', router);
 
-function handleMessageAck(data: any) {
-  // Handle message acknowledgments
-  console.log('Message acknowledgment:', data);
-}
-
-const PORT = ENV.WEBHOOK.PORT;
+const PORT = WAAPI_CONFIG.PORT;
 app.listen(PORT, () => {
   console.log(`Webhook server running on port ${PORT}`);
 });

@@ -1,27 +1,26 @@
 import { WAMessage } from '../../types/waapi.types';
 import { Message } from '../../types/message.types';
-import { ENV } from '../../config/env.config';
-import { MESSAGES_CONFIG } from './messages.config';
+import { WAAPI_CONFIG } from '../../config/constants';
 import { convertWAMessageToMessage } from '../../utils/message.utils';
 
 export class MessagesService {
   private static headers = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${ENV.WAAPI.ACCESS_TOKEN}`
+    'Authorization': `Bearer ${WAAPI_CONFIG.ACCESS_TOKEN}`
   };
 
   static async fetchMessages(cursor?: string): Promise<Message[]> {
     let retries = 0;
     
-    while (retries < MESSAGES_CONFIG.MAX_RETRIES) {
+    while (retries < WAAPI_CONFIG.MAX_RETRIES) {
       try {
-        const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/fetch-messages`;
+        const url = `${WAAPI_CONFIG.BASE_URL}/instances/${WAAPI_CONFIG.INSTANCE_ID}/client/action/fetch-messages`;
         
         const response = await fetch(url, {
           method: 'POST',
           headers: this.headers,
           body: JSON.stringify({
-            limit: MESSAGES_CONFIG.FETCH_LIMIT,
+            limit: WAAPI_CONFIG.FETCH_LIMIT,
             cursor
           })
         });
@@ -37,11 +36,11 @@ export class MessagesService {
         return messages.map(convertWAMessageToMessage).sort((a, b) => b.timestamp - a.timestamp);
         
       } catch (error) {
-        console.error(`Attempt ${retries + 1}/${MESSAGES_CONFIG.MAX_RETRIES} failed:`, error);
+        console.error(`Attempt ${retries + 1}/${WAAPI_CONFIG.MAX_RETRIES} failed:`, error);
         retries++;
         
-        if (retries < MESSAGES_CONFIG.MAX_RETRIES) {
-          await new Promise(resolve => setTimeout(resolve, MESSAGES_CONFIG.RETRY_DELAY));
+        if (retries < WAAPI_CONFIG.MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, WAAPI_CONFIG.RETRY_DELAY));
         } else {
           throw error;
         }
@@ -54,9 +53,9 @@ export class MessagesService {
   static async getMessageById(messageId: string): Promise<Message | null> {
     let retries = 0;
     
-    while (retries < MESSAGES_CONFIG.MAX_RETRIES) {
+    while (retries < WAAPI_CONFIG.MAX_RETRIES) {
       try {
-        const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/get-message-by-id`;
+        const url = `${WAAPI_CONFIG.BASE_URL}/instances/${WAAPI_CONFIG.INSTANCE_ID}/client/action/get-message-by-id`;
         
         const response = await fetch(url, {
           method: 'POST',
@@ -73,11 +72,11 @@ export class MessagesService {
         return convertWAMessageToMessage(message);
         
       } catch (error) {
-        console.error(`Attempt ${retries + 1}/${MESSAGES_CONFIG.MAX_RETRIES} failed:`, error);
+        console.error(`Attempt ${retries + 1}/${WAAPI_CONFIG.MAX_RETRIES} failed:`, error);
         retries++;
         
-        if (retries < MESSAGES_CONFIG.MAX_RETRIES) {
-          await new Promise(resolve => setTimeout(resolve, MESSAGES_CONFIG.RETRY_DELAY));
+        if (retries < WAAPI_CONFIG.MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, WAAPI_CONFIG.RETRY_DELAY));
         } else {
           return null;
         }

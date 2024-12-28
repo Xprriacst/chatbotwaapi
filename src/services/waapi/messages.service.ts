@@ -1,4 +1,4 @@
-import { ENV } from '../../config/env.config';
+import { WAAPI_CONFIG } from '../../config/constants';
 import { WAMessage } from '../../types/waapi.types';
 
 interface FetchMessagesParams {
@@ -9,12 +9,12 @@ interface FetchMessagesParams {
 export class WaAPIMessagesService {
   private static headers = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${ENV.WAAPI.ACCESS_TOKEN}`
+    'Authorization': `Bearer ${WAAPI_CONFIG.ACCESS_TOKEN}`
   };
 
   static async fetchMessages({ limit = 50, cursor }: FetchMessagesParams = {}) {
     try {
-      const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/fetch-messages`;
+      const url = `${WAAPI_CONFIG.BASE_URL}/instances/${WAAPI_CONFIG.INSTANCE_ID}/client/action/fetch-messages`;
       
       const response = await fetch(url, {
         method: 'POST',
@@ -36,7 +36,7 @@ export class WaAPIMessagesService {
 
   static async getMessageById(messageId: string) {
     try {
-      const url = `${ENV.WAAPI.BASE_URL}/instances/${ENV.WAAPI.INSTANCE_ID}/client/action/get-message-by-id`;
+      const url = `${WAAPI_CONFIG.BASE_URL}/instances/${WAAPI_CONFIG.INSTANCE_ID}/client/action/get-message-by-id`;
       
       const response = await fetch(url, {
         method: 'POST',
